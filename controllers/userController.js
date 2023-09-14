@@ -3,6 +3,8 @@ const bcrypt = require("bcrypt")
 const asyncHandler = require("express-async-handler")
 const User = require("../models/userModel")
 
+
+
 const registerUser = asyncHandler(async(req,res)=>{
     try {
         const {name,email,password} = req.body;
@@ -33,7 +35,7 @@ const registerUser = asyncHandler(async(req,res)=>{
     }
 })
 
-const generateToken = async(id)=>{
+const generateToken = (id)=>{
     return jwt.sign({id},process.env.JWT_SECRET,{expiresIn:"30d"})
 }
 
@@ -41,9 +43,7 @@ const loginController = asyncHandler(async(req,res)=>{
     const {email,password} = req.body;
 
     const user = await User.findOne({email})
-
     if(user && bcrypt.compare(password,user.password)){
-        console.log("user login successfully")
         res.status(200).json({
             _id:user.id,
             email:user.email,
