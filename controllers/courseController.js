@@ -1,109 +1,176 @@
 //import necessary modules and models
-const asyncHandler=require("express-async-handler");
-const Course=require("../models/courseModel");
-const Section=require("../models/sectionModel");
-const Video=require("../models/VideoModel");
-const Quiz=require("../models/quizModel");
+const asyncHandler = require("express-async-handler");
+const Course = require("../models/courseModel");
+const Section = require("../models/sectionModel");
+const Video = require("../models/VideoModel");
+const Quiz = require("../models/quizModel");
 
+// define a function to add a course
+const newCourse = asyncHandler(async (req, res) => {
+  const id = req.body.id;
+  const CourseName = req.body.coursename;
+  const CourseDescription = req.body.description;
+  const Author = req.body.author;
+  const Level = req.body.level;
+  const Category = req.body.category;
+  const CourseImage = req.body.courseImage;
+
+  const courseData = new Course({
+    id: id,
+    course_name: CourseName,
+    course_details: CourseDescription,
+    author: Author,
+    level: Level,
+    category: Category,
+    course_img: CourseImage,
+  });
+
+  // save data to db
+  try {
+    await courseData.save();
+    res.send("Insert data successfully");
+  } catch (error) {
+    console.log(error);
+  }
+});
 
 //Define a function to get Course
-const getCourses=asyncHandler(async(req,res)=>{
-    //get all courses from the db
-    const courses=await Course.find();
-    //send it as response
-    res.status(200).json(courses);
-})
-
+const getCourses = asyncHandler(async (req, res) => {
+  //get all courses from the db
+  const courses = await Course.find();
+  //send it as response
+  res.status(200).json(courses);
+});
 
 //Define a function to get specific course by its ID
-const getCoursesById=asyncHandler(async(req,res)=>{
-    //extract id parameter
-    const id=req.params.id;
-    //find course by its id and populate section field
-    const course=await Course.findById(id).populate("sections");
-    //send res.
-    res.status(200).json(course);
-})
+const getCoursesById = asyncHandler(async (req, res) => {
+  //extract id parameter
+  const id = req.params.id;
+  //find course by its id and populate section field
+  const course = await Course.findById(id).populate("sections");
+  //send res.
+  res.status(200).json(course);
+});
 
 //Define a function to create a new course
-const setCourse=asyncHandler(async(req,res)=>{
-    //create a new course object data from req.body
-    const course=new Course({
-        course_name:req.body.course_name,
-        course_details:req.body.course_details,
-        author:req.body.author,
-        level:req.body.level,
-        category:req.body.category,
-        course_img:req.body.course_img
-    });
+const setCourse = asyncHandler(async (req, res) => {
+  //create a new course object data from req.body
+  const course = new Course({
+    course_name: req.body.course_name,
+    course_details: req.body.course_details,
+    author: req.body.author,
+    level: req.body.level,
+    category: req.body.category,
+    course_img: req.body.course_img,
+  });
 
+  //save new course to db
+  const savedCourse = await course.save();
 
-    //save new course to db
-    const savedCourse=await course.save();
+  //iterate over sections & add them to course
+  if (req.body.sections) {
+    for (let i = 0; i < req.body.sections.length; i++) {
+      const section = req.body.sections[i];
 
-    //iterate over sections & add them to course
-    if(req.body.sections){
-        for(let i=0;i<req.body.sections.length;i++){
-            const section=req.body.sections[i];
+      //create a new section
+      const newSection = new Section({
+        section_name: section.section_name,
+        section_text: section.section_text,
+      });
 
-            //create a new section
-            const newSection=new Section({
-                section_name:section.section_name,
-                section_text:section.section_text
-            });
+      //save section to db
+      const savedSection = await newSection.save();
 
-            //save section to db
-            const savedSection=await newSection.save();
+      //iterate over videos in section
+      if (section.videos) {
+        for (let j = 0; j < section.videos.length; j++) {
+          const video = section.video[j];
 
-            //iterate over videos in section 
-            if(section.videos){
-                for(let j=0;j<section.videos.length;j++){
-                    const video=section.video[j];
+          //create a new Video Object with data
+          const newVideo = new Video({
+            video_url: video.video_url,
+            video_title: video.video_title,
+          });
 
-                    //create a new Video Object with data
-                    const newVideo=new Video({
-                        video_url:video.video_url,
-                        video_title:video.video_title,
-                    });
+          //save video to db
+          const savedVideo = await newVideo.save();
 
-                    //save video to db
-                    const savedVideo=await newVideo.save();
+          //add video Id to section Video_id array
+          savedSection.video_ids.push(savedVideo._id);
 
-                    //add video Id to section Video_id array
-                    savedSection.video_ids.push(savedVideo._id);
+          //Add quizzed to the section
+          if (section.quizzes) {
+            for (let k = 0; k < section.quizzes.length; k++) {
+              const quiz = section.quizzes[k];
+              const newQuiz = new Quiz({
+                quiz_title: quiz.quiz_title,
+                quiz_questions: quiz.quiz_questions,
+                quiz_options: quiz.quiz_options,
+                quiz_answer: quiz.quiz_answer,
+              });
 
-                
+              //save
+              const savedQuiz = await newQuiz.save();
 
-                  //Add quizzed to the section
-                  if(section.quizzes){
-                    for(let k=0;k<section.quizzes.length;k++){
-                        const quiz=section.quizzes[k];
-                        const newQuiz=new Quiz({
-                            quiz_title:quiz.quiz_title,
-                            quiz_questions:quiz.quiz_questions,
-                            quiz_options:quiz.quiz_options,
-                            quiz_answer:quiz.quiz_answer
-                        })
-
-                        //save
-                        const savedQuiz=await newQuiz.save();
-
-                        //add quiz to section 
-                        savedSection.quiz_ids.push(savedQuiz._id);
-                    }
-                    
-                  }
-                  //Add Section to course
-                  savedCourse.sections.push(savedSection._id);
-
-                }
+              //add quiz to section
+              savedSection.quiz_ids.push(savedQuiz._id);
             }
-            //Save the courses with added sections,videos and quizzes
-            const updatedCourse=await savedCourse.save();
-
-            res.status(201).json(updatedCourse);
+          }
+          //Add Section to course
+          savedCourse.sections.push(savedSection._id);
         }
+      }
+      //Save the courses with added sections,videos and quizzes
+      const updatedCourse = await savedCourse.save();
+
+      res.status(201).json(updatedCourse);
     }
+  }
+});
 
-})
+// Define a function to update existing course bt ID
+const updateCourse = asyncHandler(async (req, res) => {
+  const course = await Course.findById(req.params.id);
 
+  if (!course) {
+    res.status(404);
+    throw new Error("Course is not available");
+  }
+
+  const updateCourse = await Course.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+  });
+
+  res.status(200).json(updateCourse);
+});
+
+// Define a function a delete the course
+const deleteCourse = asyncHandler(async (req, res) => {
+  const course = await Course.findById(req.params.id);
+
+  if (!course) {
+    res.status(404);
+    throw new Error("Course is not available");
+  }
+
+  await course.remove();
+
+  res.status(200).json({ id: req.params.id });
+});
+
+// define a function to get all course
+const getAllCourse = asyncHandler(async (req, res) => {
+  const course = await Course.find();
+
+  res.status(200).json(course);
+});
+
+module.exports = {
+  getAllCourse,
+  getCourses,
+  getCoursesById,
+  setCourse,
+  deleteCourse,
+  updateCourse,
+  newCourse,
+};
